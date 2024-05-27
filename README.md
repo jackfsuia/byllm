@@ -3,7 +3,8 @@
 
 一个简易的大模型评测框架
 ## 特性
-- 支持批量评测。
+- 支持批量评测
+- 支持互相评测
 ## 使用
 输入的问答数据集必须是一个jsonl文件，满足每行数据只有"question"和"right_answer"两个属性。比如文件[qa_data_ready.jsonl](qa_data_ready.jsonl):
 ```
