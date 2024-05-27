@@ -15,7 +15,11 @@ Write your API key into [api-config.json](api-config.json).
 
 To start an evaluation of Qwen1.5-0.5B-Chat against [qa_data_ready.jsonl](qa_data_ready.jsonl), using judge [deepseek](https://platform.deepseek.com/api_keys),  run
 ```
-python eval_start.py --model /data/Qwen1.5-0.5B-Chat --judge deepseek --qafile /data/byllm/qa_data_ready.jsonl --batchsize 2 --max_new_tokens 100
+python eval_start.py --model /data/Qwen1.5-0.5B-Chat --judge deepseek --qafile /data/byllm/qa_data_ready.jsonl --batchsize 50 --max_new_tokens 512 --jbatchsize 10 --jmax_new_tokens 100
+```
+or switch their roles,
+ ```
+python eval_start.py --model deepseek --judge /data/Qwen1.5-0.5B-Chat --qafile /data/byllm/qa_data_ready.jsonl --batchsize 50 --max_new_tokens 512 --jbatchsize 10 --jmax_new_tokens 100
 ```
 The output is `qa_data_ready_llm_answers_judge.jsonl`。
 

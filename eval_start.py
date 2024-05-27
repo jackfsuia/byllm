@@ -7,132 +7,125 @@ import modelsAPI
 import os
 import argparse
 
-def model_inference(model, tokenizer, qa_file, batch_size, max_new_tokens):
-    def batch_inference(model,tokenizer, prompts:list[str])->list[str]:
-        texts=[]
-        for prompt in prompts:
-            messages = [
-                # 有的模型可以省略system prompt
-                {"role": "user", "content": prompt}
-            ]
-            text = tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True
-            )
-            texts.append(text)
-        model_inputs = tokenizer(texts, return_tensors="pt", padding=True).to(model.device)
+def model_answers(target_model, qa_file, batch_size):
 
-        generated_ids = model.generate(
-            **model_inputs,
-            max_new_tokens=max_new_tokens,
-        
-        )
-        generated_ids = [
-            output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
-        ]
-
-        responses = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
-        return responses
     eval_dataset = load_dataset(os.path.dirname(qa_file), data_files=qa_file, split="train")
     data_loader = DataLoader(dataset=eval_dataset, batch_size=batch_size, shuffle=True, num_workers=8)
 
     qa_file_llm_answers = qa_file[:-6] + "_llm_answers.jsonl"
     with open(qa_file_llm_answers,'w',encoding='utf-8') as f2:
         for i in tqdm(data_loader, total=len(data_loader)):
-            ans = batch_inference(model, tokenizer, i['question'])
+            ans = target_model(i['question'])
             for q,a,ra in zip(i['question'], ans, i['right_answer']):
                 my_dict={"question":q,"your_answer":a,"right_answer":ra }
                 f2.write(json.dumps(my_dict)+'\n')
     return qa_file_llm_answers
 
+def model_judges(judge_func, answer_file, jbatchsize):
 
-def llm_judge(answer_file, judge_func):
-    # answer_file: a jsonl file, each line with "question", "your_answer", "right_answer".
-    # judge_func: get a string, return a answer string
+    eval_dataset = load_dataset(os.path.dirname(answer_file), data_files=answer_file, split="train")
+    data_loader = DataLoader(dataset=eval_dataset, batch_size=jbatchsize, shuffle=True, num_workers=8)
+
     judge_file = answer_file[:-6] + "_judge.jsonl"
     all_q = 0
     right_a = 0
+    network_err=0
     template = "Now I give you one question and two answers to it. One of the answers is student's answer, another is the right answer. Please based on the given right answer, judge if the student's answer get\
         it right. If the student get it right, please respond with a 'yes' and reasons, otherwise with a 'no' and reasons.\n Here is the question:{question}.\n \
             Student's answer: {your_answer}. \n Right answer: {right_answer}. "
+    
+    with open(judge_file,'w',encoding='utf-8') as f:
+        for i in tqdm(data_loader, total=len(data_loader)):
+            prompts = []
+            for q, ya, ra in zip(i['question'], i['your_answer'], i['right_answer']):
 
-    with open(judge_file, "w", encoding="utf-8") as f2:
 
-        with open(answer_file, "r", encoding="utf-8") as f:
-            total_lines = sum(1 for _ in f)
-            f.seek(0)
-            for line in tqdm(f, total=total_lines, desc="Processing lines"):
-                item = json.loads(line.strip())
-                pro = template.format(
-                    question=item["question"],
-                    your_answer=item["your_answer"],
-                    right_answer=item["right_answer"],
-                )
-                try:
-                    response= judge_func(pro)
-                except Exception:
-                    # 若模型拒绝回答就丢弃这条数据
-                    continue
+                prompts += [template.format(question = q, your_answer = ya, right_answer = ra)]
+
+
+            responses = judge_func(prompts)
+
+            items="" 
+
+            for q, ya, ra, r in zip(i['question'], i['your_answer'], i['right_answer'], responses):
+
                 label = 0
-                # 若开始几个字符包括yes就是yes，否则视为no
-                if "yes" in response.lower()[:5]:
-                    right_a += 1
+                if "yes" in r.lower()[:5]:
                     label = 1
-
-                result = {
-                    "question": item["question"],
-                    "your_answer": item["your_answer"],
-                    "right_answer": item["right_answer"],
-                    "label": label,
-                    "response":response
-                }
-                f2.write(json.dumps(result) + "\n")
-                all_q += 1
-               
-    return right_a, all_q, right_a / all_q, judge_file
+                    right_a += 1
+                    all_q += 1
+                elif "Network Error!" == r:
+                    label = -100
+                    network_err += 1
+                else:
+                    all_q += 1
+                item= {"question":q, "your_answer":ya, "right_answer":ra, "label": label, "response": r}
+                items += (json.dumps(item)+'\n')
 
 
-if __name__ == "__main__":
+            f.write(items)
+
+    return right_a, all_q, right_a / all_q, network_err, judge_file
+
+def select_model():
 
     parser = argparse.ArgumentParser(description="evaluation")
-    
     parser.add_argument('--model', type=str, default='Qwen1.5-0.5B-Chat',help="model name")
     parser.add_argument('--judge', type=str, default='deepseek', help="judge model")
     parser.add_argument('--qafile', type=str, default="byllm/qa_data_ready.jsonl", help="qa file path")
     parser.add_argument('--batchsize', type=int, default=50, help="batch size")
-    parser.add_argument('--provider', type=str, default=None, help="from which provider")
+    parser.add_argument('--jbatchsize', type=int, default=50, help="batch size of judge")
+    parser.add_argument('--provider', type=str, default=None, help="model from which provider")
+    parser.add_argument('--jprovider', type=str, default=None, help="judge from which provider")
     parser.add_argument('--max_new_tokens', type=int, default=512, help="max new tokens generated by model")
+    parser.add_argument('--jmax_new_tokens', type=int, default=100, help="max new tokens generated by judge model")
+
 
     args = parser.parse_args()
 
-    model_config = {}
+    target_model_config, model_judge_config = {},{}
 
     with open("api-config.json",'r',encoding="utf-8") as f:
         config = json.load(f)
         for m in config:
+            if m['name']== args.model:
+                target_model_config = m
             if m['name']== args.judge:
-                model_config = m
-                break
-    
-    if not model_config:
-        print(f"API not found, will be using huggingface model {args.judge} as judge. If you still mean API, please add this model in modelsAPI.py, api-config.json, eval_start.py.")
-        model_judge= modelsAPI.hf_factory(model_path=args.judge)
+                model_judge_config = m
+
+    if not target_model_config:
+        print(f"{args.model} API not found, will be using huggingface model {args.model} as target model. If you still mean API, please add this model in modelsAPI.py, api-config.json, eval_start.py.")
+        target_model= modelsAPI.hf_factory(args.model, args.max_new_tokens)
     else:        
-        if model_config['provider'] == 'baidu':
-            model_judge= modelsAPI.baidu_factory(api_key=m['api_key'], secret_key=m['secret_key'], base_url=m['base_url'])
-        elif model_config['provider'] == 'deepseek':
-            model_judge= modelsAPI.deepseek_factory(api_key=m['api_key'])        
+        if target_model_config['provider'] == 'baidu':
+            target_model= modelsAPI.baidu_factory(target_model_config['api_key'], target_model_config['secret_key'], args.max_new_tokens, target_model_config['base_url'])
+        elif target_model_config['provider'] == 'deepseek':
+            target_model= modelsAPI.deepseek_factory(target_model_config['api_key'], args.max_new_tokens, target_model_config['base_url'])        
         else:
-            raise Exception(f"Provider {model_config['provider']} not supported, please add the support in modelsAPI.py and eval_start.py.")
+            raise Exception(f"Provider {target_model_config['provider']} not supported, please add the support in modelsAPI.py and eval_start.py.")    
         
-    model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype="auto", device_map="auto").eval()
+    if not model_judge_config:
+        print(f"{args.judge} API not found, will be using huggingface model {args.judge} as judge. If you still mean API, please add this model in modelsAPI.py, api-config.json, eval_start.py.")
+        model_judge= modelsAPI.hf_factory(args.judge, args.jmax_new_tokens)
+    else:        
+        if model_judge_config['provider'] == 'baidu':
+            model_judge= modelsAPI.baidu_factory(model_judge_config['api_key'], model_judge_config['secret_key'], args.jmax_new_tokens, model_judge_config['base_url'])
+        elif model_judge_config['provider'] == 'deepseek':
+            model_judge= modelsAPI.deepseek_factory(model_judge_config['api_key'], args.jmax_new_tokens, model_judge_config['base_url'])        
+        else:
+            raise Exception(f"Provider {model_judge_config['provider']} not supported, please add the support in modelsAPI.py and eval_start.py.")
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True, padding_side="left")
+    return target_model, model_judge, args
 
-    qa_file_llm_answers = model_inference(model, tokenizer, args.qafile, args.batchsize, args.max_new_tokens)
+if __name__ == "__main__":
 
-    right_a, all_q, accuracy, judge_file = llm_judge(qa_file_llm_answers, model_judge)
 
-    print(f"right answers ={right_a}, all = {all_q}, accuracy ={accuracy}. Results are saved to {judge_file}")
+    target_model, model_judge, args = select_model()
+
+
+    qa_file_llm_answers = model_answers(target_model, args.qafile, args.batchsize)
+
+    right_a, all_q, accuracy, network_err, judge_file = model_judges(model_judge, qa_file_llm_answers, args.jbatchsize)
+
+    print(f"right answers ={right_a}, successful judges = {all_q}, accuracy ={accuracy}. network errors = {network_err}. Results are saved to {judge_file}")
 

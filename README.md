@@ -14,7 +14,11 @@
 
 假如对 Qwen1.5-0.5B-Chat 做评测，用的问答数据集是[qa_data_ready.jsonl](qa_data_ready.jsonl), 用的评测大模型是[deepseek](https://platform.deepseek.com/api_keys), 那么开始评测，只要运行
 ```
-python eval_start.py --model /data/Qwen1.5-0.5B-Chat --judge deepseek --qafile /data/byllm/qa_data_ready.jsonl --batchsize 2 --max_new_tokens 100
+python eval_start.py --model /data/Qwen1.5-0.5B-Chat --judge deepseek --qafile /data/byllm/qa_data_ready.jsonl --batchsize 50 --max_new_tokens 512 --jbatchsize 10 --jmax_new_tokens 100
+```
+或者互换他俩的角色，那么就是运行
+```
+python eval_start.py --model deepseek --judge /data/Qwen1.5-0.5B-Chat --qafile /data/byllm/qa_data_ready.jsonl --batchsize 50 --max_new_tokens 512 --jbatchsize 10 --jmax_new_tokens 100
 ```
 即可。评测结果在`qa_data_ready_llm_answers_judge.jsonl`。
 ## 说明
