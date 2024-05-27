@@ -3,8 +3,8 @@
 
 A small LLM evaluation framework.
 ## Features
-- Support batch inference.
-
+- Support batch evaluation.
+- Support mutual evaluation.
 ## Use
 The QA file must be a jsonl file，of which only has two properties: "question",  "right_answer". For example, the [qa_data_ready.jsonl](qa_data_ready.jsonl):
 ```
