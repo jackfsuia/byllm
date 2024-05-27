@@ -1,0 +1,29 @@
+[
+    {
+        "name": "deepseek",
+        "provider": "deepseek",
+        "base_url": "https://api.deepseek.com",
+        "api_key": "sk-afdh89jwioahdawdw7dbd9"
+    },
+    {
+        "name": "ERNIE-Speed-8K",
+        "provider": "baidu",
+        "base_url": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie_speed?access_token=",
+        "api_key": "sksjhkdjakhjdkwakjjkdw",
+        "secret_key": "dhnwajkudnjwahjkdw"
+    },
+    {
+        "name": "ERNIE-Speed-128K",
+        "provider": "baidu",
+        "base_url": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie-speed-128k?access_token=",
+        "api_key": "sksjhkdjakhjdkwakjjkdw",
+        "secret_key": "dhnwajkudnjwahjkdw"
+    },
+    {
+        "name": "Yi-34B-Chat",
+        "provider": "baidu",
+        "base_url": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/yi_34b_chat?access_token=",
+        "api_key": "sksjhkdjakhjdkwakjjkdw",
+        "secret_key": "dhnwajkudnjwahjkdw"
+    }
+]
