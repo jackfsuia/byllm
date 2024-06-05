@@ -1,27 +1,34 @@
 def deepseek_factory(api_key, max_new_tokens, base_url):
     from openai import OpenAI
     from tqdm import tqdm
-
+    from concurrent.futures import ThreadPoolExecutor
     client = OpenAI(api_key=api_key, base_url=base_url)
 
     def llm_response(prompts: list[str]) -> list[str]:
         # get a string, return a answer string
-        results = []
-        for s in prompts:
+        def thread_func(p:str)->str:
             try:
                 response = client.chat.completions.create(
                     model="deepseek-chat",
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": s},
+                        {"role": "user", "content": p},
                     ],
                     max_tokens=max_new_tokens,
                     temperature=0.7,
                     stream=False,
                 )
-                results += [response.choices[0].message.content]
+                result = [response.choices[0].message.content]
+                print('-->one success')
             except:
-                results += ["Network Error!"]
+                result = ["Network Error!"]
+                print('-->one network error')
+            return result
+    
+        with ThreadPoolExecutor(max_workers=len(prompts)) as executor:
+
+            results = list(executor.map(thread_func, prompts))
+
         return results
 
     return llm_response
@@ -35,7 +42,7 @@ def baidu_factory(
 ):
     import requests
     import json
-
+    from concurrent.futures import ThreadPoolExecutor
     def get_access_token():
 
         url = f"https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id={secret_key}&client_secret={api_key}"
@@ -51,14 +58,22 @@ def baidu_factory(
     headers = {"Content-Type": "application/json"}
 
     def llm_response(prompts: list[str]) -> list[str]:
-        results = []
-        for s in prompts:
+
+        def thread_func(p:str)->str:
+
             payload = json.dumps({"messages": [{"role": "user", "content": s}], "max_output_tokens": max_new_tokens})
             try:
                 response = requests.request("POST", url, headers=headers, data=payload)
-                results += [response.json()["result"]]
+                result = response.json()["result"]
+                print('-->one success')
             except:
-                results += ["Network Error!"]
+                result = "Network Error!"
+                print('-->one network error')
+            return result
+            
+        with ThreadPoolExecutor(max_workers=len(prompts)) as executor:
+
+            results = list(executor.map(thread_func, prompts))
 
         return results
 
