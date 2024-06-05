@@ -1,11 +1,9 @@
 def deepseek_factory(api_key, max_new_tokens, base_url):
-    from openai import OpenAI
-    from tqdm import tqdm
-    from concurrent.futures import ThreadPoolExecutor
-    client = OpenAI(api_key=api_key, base_url=base_url)
-    def thread_func(p:str)->str:
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+    async def thread_func(p:str)->str:
         try:
-            response = client.chat.completions.create(
+            response = await client.chat.completions.create(
                 model="deepseek-chat",
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant."},
@@ -15,20 +13,26 @@ def deepseek_factory(api_key, max_new_tokens, base_url):
                 temperature=0.7,
                 stream=False,
             )
-            result = [response.choices[0].message.content]
+            result = response.choices[0].message.content
             print('-->one success')
         except:
-            result = ["Network Error!"]
+            print(response)
+            result = "Network Error!"
             print('-->one network error')
         return result
     
-    def llm_response(prompts: list[str], executor:ThreadPoolExecutor) -> list[str]:
+    import asyncio
 
-        results = list(executor.map(thread_func, prompts))
+    def llm_response(prompts: list[str]) -> list[str]:
+        async def main():
+            tasks = [thread_func(p) for p in prompts]
+            results = await asyncio.gather(*tasks)
+            return results
+        
+        results = asyncio.run(main())
 
         return results
     
-    llm_response.is_hf_model = False
     
     return llm_response
 
@@ -41,7 +45,6 @@ def baidu_factory(
 ):
     import requests
     import json
-    from concurrent.futures import ThreadPoolExecutor
     def get_access_token():
 
         url = f"https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id={api_key}&client_secret={secret_key}"
@@ -55,27 +58,35 @@ def baidu_factory(
     url = base_url + get_access_token()
 
     headers = {"Content-Type": "application/json"}
-
-    def thread_func(p:str)->str:
-
-        payload = json.dumps({"messages": [{"role": "user", "content": p}], "max_output_tokens": max_new_tokens})
-        try:
-            response = requests.request("POST", url, headers=headers, data=payload)
-            result = response.json()["result"]
-            print('-->one success')
-        except:
-            result = "Network Error!"
-            print('-->one network error')
-        return result  
     
-    def llm_response(prompts: list[str], executor:ThreadPoolExecutor) -> list[str]:
+    import asyncio
+    import aiohttp    
+
+    async def thread_func(p:str)->str:
+        payload = json.dumps({"messages": [{"role": "user", "content": p}], "max_output_tokens": max_new_tokens})
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(url, headers=headers, data=payload) as response:
+                    jresult = await response.json()
+                    result = jresult["result"]
+                    print('-->one success')
+            except Exception as e:
+                print(jresult)
+                result="Network Error!" 
+                print('-->one network error')
+        return result
+      
+
+    def llm_response(prompts: list[str]) -> list[str]:
+        async def main():
+            tasks = [thread_func(p) for p in prompts]
+            results = await asyncio.gather(*tasks)
 
 
-        results = list(executor.map(thread_func, prompts))
-
+            return results
+        results = asyncio.run(main())
         return results
     
-    llm_response.is_hf_model = False
 
     return llm_response
 
@@ -121,6 +132,5 @@ def hf_factory(model_path, max_new_tokens):
 
         responses = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
         return responses
-    llm_response.is_hf_model = True
 
     return llm_response
