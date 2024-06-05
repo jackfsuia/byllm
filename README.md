@@ -22,4 +22,4 @@ python eval_start.py --model deepseek --judge /data/Qwen1.5-0.5B-Chat --qafile /
 ```
 即可。评测结果在`qa_data_ready_llm_answers_judge.jsonl`。
 ## 说明
-基本代码和详细的说明都在[eval.ipynb](eval.ipynb)文件。
+初始的代码和说明都在[eval.ipynb](eval.ipynb)文件。
