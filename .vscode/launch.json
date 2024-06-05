@@ -1,0 +1,22 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "--model", "ERNIE-Speed-8K",
+                "--qafile", "D:\\github_project3\\byllm\\qa_data_answer.jsonl",
+                "--batchsize", "3",
+                "--max_new_tokens", "4000"
+            ]
+        }
+    ]
+}

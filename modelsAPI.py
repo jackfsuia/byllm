@@ -3,34 +3,33 @@ def deepseek_factory(api_key, max_new_tokens, base_url):
     from tqdm import tqdm
     from concurrent.futures import ThreadPoolExecutor
     client = OpenAI(api_key=api_key, base_url=base_url)
-
-    def llm_response(prompts: list[str]) -> list[str]:
-        # get a string, return a answer string
-        def thread_func(p:str)->str:
-            try:
-                response = client.chat.completions.create(
-                    model="deepseek-chat",
-                    messages=[
-                        {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": p},
-                    ],
-                    max_tokens=max_new_tokens,
-                    temperature=0.7,
-                    stream=False,
-                )
-                result = [response.choices[0].message.content]
-                print('-->one success')
-            except:
-                result = ["Network Error!"]
-                print('-->one network error')
-            return result
+    def thread_func(p:str)->str:
+        try:
+            response = client.chat.completions.create(
+                model="deepseek-chat",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": p},
+                ],
+                max_tokens=max_new_tokens,
+                temperature=0.7,
+                stream=False,
+            )
+            result = [response.choices[0].message.content]
+            print('-->one success')
+        except:
+            result = ["Network Error!"]
+            print('-->one network error')
+        return result
     
-        with ThreadPoolExecutor(max_workers=len(prompts)) as executor:
+    def llm_response(prompts: list[str], executor:ThreadPoolExecutor) -> list[str]:
 
-            results = list(executor.map(thread_func, prompts))
+        results = list(executor.map(thread_func, prompts))
 
         return results
-
+    
+    llm_response.is_hf_model = False
+    
     return llm_response
 
 
@@ -45,37 +44,38 @@ def baidu_factory(
     from concurrent.futures import ThreadPoolExecutor
     def get_access_token():
 
-        url = f"https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id={secret_key}&client_secret={api_key}"
-
+        url = f"https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id={api_key}&client_secret={secret_key}"
         payload = json.dumps("")
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
 
         response = requests.request("POST", url, headers=headers, data=payload)
+        print(response)
         return response.json().get("access_token")
 
     url = base_url + get_access_token()
 
     headers = {"Content-Type": "application/json"}
 
-    def llm_response(prompts: list[str]) -> list[str]:
+    def thread_func(p:str)->str:
 
-        def thread_func(p:str)->str:
+        payload = json.dumps({"messages": [{"role": "user", "content": p}], "max_output_tokens": max_new_tokens})
+        try:
+            response = requests.request("POST", url, headers=headers, data=payload)
+            result = response.json()["result"]
+            print('-->one success')
+        except:
+            result = "Network Error!"
+            print('-->one network error')
+        return result  
+    
+    def llm_response(prompts: list[str], executor:ThreadPoolExecutor) -> list[str]:
 
-            payload = json.dumps({"messages": [{"role": "user", "content": s}], "max_output_tokens": max_new_tokens})
-            try:
-                response = requests.request("POST", url, headers=headers, data=payload)
-                result = response.json()["result"]
-                print('-->one success')
-            except:
-                result = "Network Error!"
-                print('-->one network error')
-            return result
-            
-        with ThreadPoolExecutor(max_workers=len(prompts)) as executor:
 
-            results = list(executor.map(thread_func, prompts))
+        results = list(executor.map(thread_func, prompts))
 
         return results
+    
+    llm_response.is_hf_model = False
 
     return llm_response
 
@@ -121,5 +121,6 @@ def hf_factory(model_path, max_new_tokens):
 
         responses = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)
         return responses
+    llm_response.is_hf_model = True
 
     return llm_response
