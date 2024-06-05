@@ -24,4 +24,4 @@ python eval_start.py --model deepseek --judge /data/Qwen1.5-0.5B-Chat --qafile /
 The output is `qa_data_ready_llm_answers_judge.jsonl`。
 
 ## Notes
-Basic code and notes are in [eval_en.ipynb](eval_en.ipynb).
+Initial code and notes are in [eval_en.ipynb](eval_en.ipynb).
