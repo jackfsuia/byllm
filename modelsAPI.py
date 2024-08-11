@@ -15,8 +15,8 @@ def deepseek_factory(api_key, max_new_tokens, base_url):
             )
             result = response.choices[0].message.content
             print('-->one success')
-        except:
-            print(response)
+        except Exception as e:
+            print(e)
             result = "Network Error!"
             print('-->one network error')
         return result
