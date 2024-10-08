@@ -1,3 +1,4 @@
+
 def deepseek_factory(api_key, max_new_tokens, base_url):
     from openai import AsyncOpenAI
     client = AsyncOpenAI(api_key=api_key, base_url=base_url)
@@ -22,11 +23,12 @@ def deepseek_factory(api_key, max_new_tokens, base_url):
         return result
     
     import asyncio
-
+    from tqdm.asyncio import tqdm
     def llm_response(prompts: list[str]) -> list[str]:
         async def main():
             tasks = [thread_func(p) for p in prompts]
-            results = await asyncio.gather(*tasks)
+            results = await tqdm.gather(*tasks, desc="Receiving")
+           # results = await asyncio.gather(*tasks)
             return results
         
         results = asyncio.run(main())
@@ -61,7 +63,7 @@ def baidu_factory(
     
     import asyncio
     import aiohttp    
-
+    from tqdm.asyncio import tqdm
     async def thread_func(p:str)->str:
         payload = json.dumps({"messages": [{"role": "user", "content": p}], "max_output_tokens": max_new_tokens})
         async with aiohttp.ClientSession() as session:
@@ -80,8 +82,8 @@ def baidu_factory(
     def llm_response(prompts: list[str]) -> list[str]:
         async def main():
             tasks = [thread_func(p) for p in prompts]
-            results = await asyncio.gather(*tasks)
-
+            results = await tqdm.gather(*tasks, desc="Receiving")
+           # results = await asyncio.gather(*tasks)
 
             return results
         results = asyncio.run(main())
