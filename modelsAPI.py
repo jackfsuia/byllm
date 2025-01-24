@@ -27,8 +27,42 @@ def deepseek_factory(api_key, max_new_tokens, base_url):
     def llm_response(prompts: list[str]) -> list[str]:
         async def main():
             tasks = [thread_func(p) for p in prompts]
-            results = await tqdm.gather(*tasks, desc="Receiving")
-           # results = await asyncio.gather(*tasks)
+            results = await asyncio.gather(*tasks)
+            return results
+        
+        results = asyncio.run(main())
+
+        return results
+    
+    
+    return llm_response
+def doubao_factory():
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key="558", base_url="https://ark.cn-beijing.volces.com/api/v3")
+    async def thread_func(p:str)->str:
+        try:
+            response = await client.chat.completions.create(
+                model="dadw",
+                messages=[
+                    {"role": "system", "content": "你是豆包，是由字节跳动开发的 AI 人工智能助手"},
+                    {"role": "user", "content": p},
+                ],
+                stream=False,
+            )
+            result = response.choices[0].message.content
+            print('-->one success')
+        except Exception as e:
+            print(e)
+            result = "Network Error!"
+            print('-->one network error')
+        return result
+    
+    import asyncio
+    from tqdm.asyncio import tqdm
+    def llm_response(prompts: list[str]) -> list[str]:
+        async def main():
+            tasks = [thread_func(p) for p in prompts]
+            results = await asyncio.gather(*tasks)
             return results
         
         results = asyncio.run(main())
