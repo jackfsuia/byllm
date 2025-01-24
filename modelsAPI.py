@@ -15,7 +15,6 @@ def deepseek_factory(api_key, max_new_tokens, base_url):
                 stream=False,
             )
             result = response.choices[0].message.content
-            print('-->one success')
         except Exception as e:
             print(e)
             result = "Network Error!"
@@ -50,7 +49,6 @@ def doubao_factory():
                 stream=False,
             )
             result = response.choices[0].message.content
-            print('-->one success')
         except Exception as e:
             print(e)
             result = "Network Error!"
